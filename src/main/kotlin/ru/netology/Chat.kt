@@ -52,9 +52,15 @@ object ChatService {
     }
 
     fun getAllMessage(chatId: Int): List<Message> {
-        val chat = chats.firstOrNull() { it.chatId == chatId } ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
-        val updatedMessages = chat.messages
+        val chat = chats.firstOrNull { it.chatId == chatId }
+            ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
+        val updatedMessages = chat
+            .messages
+            .asSequence()
             .map { it.copy(isRead = true) }
+            .take(2)
+            .let { it.toList() }
+
 
         val updatedChat = chat.copy(messages = updatedMessages)
         chats.removeIf { updatedChat.chatId == it.chatId }
@@ -63,9 +69,15 @@ object ChatService {
     }
 
     fun getNextPageMessage(chatId: Int, lastMessageId: Int): List<Message> {
-        val chat = chats.firstOrNull { it.chatId == chatId } ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
-        val updatedMessages = chat.messages.filter { it.msgId > lastMessageId }
+        val chat = chats.firstOrNull { it.chatId == chatId }
+            ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
+        val updatedMessages = chat
+            .messages
+            .asSequence()
+            .filter { it.msgId > lastMessageId }
+            .take(2)
             .map { it.copy(isRead = true) }
+            .let { it.toList() }
 
         val updatedChat = chat.copy(messages = updatedMessages)
         chats.removeIf { updatedChat.chatId == it.chatId }
@@ -74,7 +86,8 @@ object ChatService {
     }
 
     fun getMessages(chatId: Int, messageCount: Int): List<Message> {
-        val chat = chats.firstOrNull{ it.chatId == chatId } ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
+        val chat = chats.firstOrNull { it.chatId == chatId }
+            ?: throw ChatNotFoundException("Чаты с указанным id '${chatId}' не найдены")
         val updatedMessages = chat.messages.take(messageCount)
             .map { it.copy(isRead = true) }
 
@@ -85,22 +98,34 @@ object ChatService {
     }
 
     fun getUnreadChatsCount(): Int {
-        val chatsCount = chats.sumOf { chat ->
-            chat
-                .messages.count { message ->
-                    when {
-                        (message.isRead == false) -> return@sumOf 1
-                        else -> return@sumOf 0
+        val chatsCount = chats
+            .asSequence()
+            .take(2)
+            .sumOf { chat ->
+                chat
+                    .messages
+                    .count { message ->
+                        when {
+                            (message.isRead == false) -> return@sumOf 1
+                            else -> return@sumOf 0
+                        }
                     }
-                }
-        }
+            }
         return chatsCount
     }
 
     fun getChats(userId: Int): List<Chat> {
-        val chatsList: List<Chat> = chats.filter { chat ->
-            chat.messages.any { it.ownerId == userId }
-        }
+        val chatsList: List<Chat> = chats
+            .asSequence()
+            .filter { chat ->
+                chat
+                    .messages
+                    .any {
+                        it
+                            .ownerId == userId
+                    }
+            }.take(1)
+            .toList()
         if (chatsList.isEmpty()) throw UserNotFoundException("Пользователь с указанным id '$userId' не найден")
         return chatsList
     }
